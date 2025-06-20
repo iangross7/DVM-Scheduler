@@ -1,26 +1,42 @@
-'''
-Class used to schedule.
-
-Using Calendar module, days are zero-based indexed, months are one-based indexed.
-'''
 import calendar
 from day import Day
 from typing import List
 
 '''
-closedDict: dict where key = day closed, value = reason
-vacationArray: array where each idx corresponds to DVM containing a list of their days off
-self.schedule: array representation of the schedule. contains pre-month and post-month days for full weeks.
+Class used to schedule.
+
+Using Calendar module, days are zero-based indexed, months are one-based indexed.
+
+@PARAMS
+- month: int of month
+- year: int of year
+- closedDict: dict where key = day closed, value = reason
+- vacationArray: array where each idx corresponds to DVM containing a list of their days off
+                 [[1, 28], [], [], [3 4 5], []]
+- prevDays: array representation of days prior to month start (ACTUAL DAY OBJECTS)
+- satSurgeonDayOff: which saturday the monthly sat surgeon requested off
+- satSurgeon: which is the sat Surgeon of the month
+
+@DATAFIELDS
+- numDays: number of days in current month
+- firstDayOfMonth: which type of day for FOM (0-6)
+- lastDayOfMonth: which type of day for EOM (0-6)
+- monthStartOffset: how many days prior to month start (IDX ADD)
+- monthEndOffset: how many days after month end (IDX ADD)
+- schedule: array representation of the schedule. contains pre-month and post-month days for full weeks
 '''
 NUM_DVMs = 5
 
 class Scheduler:
     def __init__(self, month, year, closedDict, vacationArray, 
-                 prevDays=None, satSurgeonDayOff=None, satSurgeon=None):
+                 prevDays=None, satSurgeon=None, satSurgeonDayOff=None):
         
+        self.month = month
+        self.year = year
+
         _, self.numDays = calendar.monthrange(year, month)
 
-        self.firstDayOfMonth = calendar.weekday(year, month, 1)
+        self.firstDayOfMonth = calendar.weekday(year, month, 1) # OUTPUTTING ACTUAL DAY OBJECT NOT INT
         self.monthStartOffset = self.firstDayOfMonth % 6 # when current month starts in array
 
         # TODO: VACATION DAY INPUT/CALCULATORS FOR THIS
@@ -51,6 +67,13 @@ class Scheduler:
 
         # Instantiates post-month-days in array (for a full week)
         for i in range (1, self.monthEndOffset + 1):
+            tempYear = year
+            tempMonth = month
+            if month == 12: 
+                tempYear = year +1
+                tempMonth = 1
+
+            dayOfWeek = calendar.weekday(tempYear, tempMonth, i)
             self.schedule.append(Day(i))
 
         # Implementing declared vacation days. i is DVM_IDX

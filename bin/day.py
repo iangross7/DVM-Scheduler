@@ -1,6 +1,22 @@
 '''
 Class to represent a schedule day. 0 = Monday, 5 = Saturday.
 
+@PARAMS
+- dayNum (num 0-5 for day)
+- isOpen (clinic open/closed)
+- closedReason (description for clinic closed)
+
+@DATAFIELDS:
+- dayNum 
+- isOpen
+- closedReason
+- clockIns (all below are same, 1x5 array for DVMs)
+- clockOuts
+- lunches
+- aptTypes 
+- vacationOff
+- standardOff
+
 Arrays Represent Order of DVMS being:
 LO // LP // EJS // JA // EDS
 '''
@@ -36,10 +52,10 @@ class Day:
             self.standardOff = [False, False, False, False, False]
 
     def setVet(self, dvmIdx, clockIn, clockOut, aptType, lunch=None):
-        self.clockIns(dvmIdx) = clockIn
-        self.clockOuts(dvmIdx) = clockOut
-        self.aptTypes(dvmIdx) = aptType
-        self.lunches(dvmIdx) = lunch
+        self.clockIns[dvmIdx] = clockIn
+        self.clockOuts[dvmIdx] = clockOut
+        self.aptTypes[dvmIdx] = aptType
+        self.lunches[dvmIdx] = lunch
 
     def setVacation(self, dvmIdx):
         self.vacationOff[dvmIdx] = True
