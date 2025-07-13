@@ -1,32 +1,34 @@
-'''
-Class to represent a schedule day. 0 = Monday, 5 = Saturday.
-
-@PARAMS
-- dayNum (num 0-5 for day)
-- isOpen (clinic open/closed)
-- closedReason (description for clinic closed)
-
-@DATAFIELDS:
-- dayNum 
-- isOpen
-- closedReason
-- clockIns (all below are same, 1x5 array for DVMs)
-- clockOuts
-- lunches
-- aptTypes 
-- vacationOff
-- standardOff
-
-Arrays Represent Order of DVMS being:
-LO // LP // EJS // JA // EDS
-'''
 from lib.DVM import DVM
 
 class Day:
+    """
+    Class to represent a schedule day. 0 = Monday, 5 = Saturday.
+    Clock In/Out/Lunch times are military time (24:00).
+
+    @PARAMS
+    - dayNum (num 0-5 for day)
+    - isOpen (clinic open/closed)
+    - closedReason (description for clinic closed)
+
+    @DATAFIELDS:
+    - dayNum 
+    - isOpen
+    - closedReason
+    - clockIns (all below are same, 1xX array for DVMs)
+    - clockOuts
+    - lunches
+    - aptTypes 
+    - vacationOff
+    - standardOff
+
+    Arrays Follow DVM index set in DVM.py.
+    """
 
     def __init__(self, dayNum, isOpen=True, closedReason=None):
         if dayNum < 0 or dayNum > 5:
             raise ValueError(f"Invalid Day of Week (got {dayNum})")
+        
+        numDvms = DVM.NUM_DVMS.value
 
         self.dayNum = dayNum
         self.isOpen = isOpen # CLINIC CLOSED / HOLIDAYS
@@ -34,24 +36,27 @@ class Day:
             self.closedReason = closedReason
             return
 
-        self.clockIns = [None, None, None, None, None] # INT FOR HOUR IN
-        self.clockOuts = [None, None, None, None, None] # INT FOR HOUR OUT
-        self.lunches = [None, None, None, None, None] # INT FOR HOUR START
+        self.clockIns = [0] * numDvms # INT FOR HOUR IN (MILITARY TIME)
+        self.clockOuts = [0] * numDvms # INT FOR HOUR OUT (WORKED THROUGH)
+        self.lunches = [0] * numDvms # INT FOR HOUR START 
 
-        self.aptTypes = [None, None, None, None, None]
+        self.aptTypes = [None] * numDvms
 
-        self.vacationOff = [False, False, False, False, False] # T/F FOR VACATION OFF
+        self.vacationOff = [False] * numDvms # T/F FOR VACATION OFF
+
+        self.standardOff = [False] * numDvms # T/F FOR STANDARD DAY OFGF
 
         if (dayNum == 0): # MONDAY OFFS (LP, EJS)
-            self.standardOff = [False, True, True, False, False]
+            self.standardOff[DVM.LP.value] = True
+            self.standardOff[DVM.EJS.value] = True
         elif (dayNum == 1): # TUESDAY OFFS (JA)
-            self.standardOff = [False, False, False, True, False]
-        if (dayNum == 2): # WEDNESDAY OFFS (LO, EDS)    
-            self.standardOff = [True, False, False, False, True]
+            self.standardOff[DVM.JA.value] = True
+        elif (dayNum == 2): # WEDNESDAY OFFS (LO, EDS)
+            self.standardOff[DVM.LO.value] = True
+            self.standardOff[DVM.EDS.value] = True    
         elif (dayNum == 4): # FRIDAY OFFS  (LO)
-            self.standardOff = [True, False, False, False, False]
-        else: # NO AUTOMATIC OFFS FOR THURSDAY, SATURDAY
-            self.standardOff = [False, False, False, False, False]
+            self.standardOff[DVM.LO.value] = True
+        # NO AUTOMATIC OFFS FOR THURSDAY, SATURDAY
 
     def setVet(self, dvm: DVM, clockIn, clockOut, aptType, lunch=None):
         dvmIdx = dvm.value
@@ -62,5 +67,23 @@ class Day:
 
     def setVacation(self, dvm: DVM):
         self.vacationOff[dvm.value] = True
+
+    def getHoursWorked(self, dvm: DVM):
+        """
+        Returns how many hours a DVM worked, accounting for lunch breaks.
+        Time is in military. Clock out is the hour they work through:
+        (19 = 7PM means clocked out at 8PM)
+        """
+        dvmIdx = dvm.value
+        clockDiff = self.clockOuts[dvmIdx] - self.clockIns[dvmIdx] + 1
+
+        if (self.lunches[dvmIdx] == 0):
+            return clockDiff
+        else:
+            if (self.dayNum <= 1):
+                return (clockDiff - 2)
+            else:
+                return (clockDiff - 1)
+
     
     # TODO: IMPLEMENT GET HOURS FUNCTION

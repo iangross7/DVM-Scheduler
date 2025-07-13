@@ -1,36 +1,37 @@
-'''
-Class used to schedule.
-
-Using Calendar module, days are zero-based indexed, months are one-based indexed.
-
-@PARAMS
-- month: INT of month
-- year: INT of year
-- closedDict: DICT where key = day closed, value = reason
-- vacationArray: LIST where each idx corresponds to DVM containing a list of their days off
-                 [[1, 28], [], [], [3 4 5], []]
-- prevDays: LIST of DAY objects for days in previous month (ACTUAL DAY OBJECTS)
-- satSurgeon: which is the sat Surgeon of the month
-- satSurgeonDayOff: boolean which saturday the monthly sat surgeon requested off
-
-@DATAFIELDS
-- ALL PARAMS PLUS:
-- numDays: number of days in current month
-- firstDayOfMonth: which type of day for FOM (0-6)
-- lastDayOfMonth: which type of day for EOM (0-6)
-- monthStartOffset: how many days prior to month start (IDX ADD)
-- monthEndOffset: how many days after month end (IDX ADD)
-- schedule: array representation of the schedule. contains pre-month and post-month days for full weeks
-'''
-
 import calendar
 from day import Day
 from typing import List
+from lib.DVM import DVM
 
 class Scheduler:
+    """
+    Class used to schedule.
+
+    Using Calendar module, days are zero-based indexed, months are one-based indexed.
+
+    @PARAMS
+    - month: INT of month
+    - year: INT of year
+    - closedDict: DICT where key = day closed, value = reason
+    - vacationArray: LIST where each idx corresponds to DVM containing a list of their days off
+                    [[1, 28], [], [], [3 4 5], []]
+    - prevDays: LIST of DAY objects for days in previous month (ACTUAL DAY OBJECTS)
+    - satSurgeon: which is the sat Surgeon of the month
+    - satSurgeonDayOff: boolean which saturday the monthly sat surgeon requested off
+
+    @DATAFIELDS
+    - ALL PARAMS PLUS:
+    - numDays: number of days in current month
+    - firstDayOfMonth: which type of day for FOM (0-6)
+    - lastDayOfMonth: which type of day for EOM (0-6)
+    - monthStartOffset: how many days prior to month start (IDX ADD)
+    - monthEndOffset: how many days after month end (IDX ADD)
+    - schedule: array representation of the schedule. contains pre-month and post-month days for full weeks
+    """
+
     NUM_DVMs = 5
 
-    def __init__(self, month, year, closedDict, vacationArray, satSurgeon,
+    def __init__(self, month, year, closedDict, vacationArray, satSurgeon: DVM,
                  prevDays=None, satSurgeonDayOff=None):
         
         self.month = month
