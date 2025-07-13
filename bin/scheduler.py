@@ -1,23 +1,20 @@
-import calendar
-from day import Day
-from typing import List
-
 '''
 Class used to schedule.
 
 Using Calendar module, days are zero-based indexed, months are one-based indexed.
 
 @PARAMS
-- month: int of month
-- year: int of year
-- closedDict: dict where key = day closed, value = reason
-- vacationArray: array where each idx corresponds to DVM containing a list of their days off
+- month: INT of month
+- year: INT of year
+- closedDict: DICT where key = day closed, value = reason
+- vacationArray: LIST where each idx corresponds to DVM containing a list of their days off
                  [[1, 28], [], [], [3 4 5], []]
-- prevDays: array representation of days prior to month start (ACTUAL DAY OBJECTS)
-- satSurgeonDayOff: which saturday the monthly sat surgeon requested off
+- prevDays: LIST of DAY objects for days in previous month (ACTUAL DAY OBJECTS)
 - satSurgeon: which is the sat Surgeon of the month
+- satSurgeonDayOff: boolean which saturday the monthly sat surgeon requested off
 
 @DATAFIELDS
+- ALL PARAMS PLUS:
 - numDays: number of days in current month
 - firstDayOfMonth: which type of day for FOM (0-6)
 - lastDayOfMonth: which type of day for EOM (0-6)
@@ -25,11 +22,16 @@ Using Calendar module, days are zero-based indexed, months are one-based indexed
 - monthEndOffset: how many days after month end (IDX ADD)
 - schedule: array representation of the schedule. contains pre-month and post-month days for full weeks
 '''
-NUM_DVMs = 5
+
+import calendar
+from day import Day
+from typing import List
 
 class Scheduler:
-    def __init__(self, month, year, closedDict, vacationArray, 
-                 prevDays=None, satSurgeon=None, satSurgeonDayOff=None):
+    NUM_DVMs = 5
+
+    def __init__(self, month, year, closedDict, vacationArray, satSurgeon,
+                 prevDays=None, satSurgeonDayOff=None):
         
         self.month = month
         self.year = year
@@ -77,7 +79,7 @@ class Scheduler:
             self.schedule.append(Day(i))
 
         # Implementing declared vacation days. i is DVM_IDX
-        for i in range(NUM_DVMs):
+        for i in range(Scheduler.NUM_DVMs):
             for j in vacationArray[i]:
                 self.schedule[j + self.monthStartOffset].setVacation(i)
         

@@ -20,6 +20,8 @@ Class to represent a schedule day. 0 = Monday, 5 = Saturday.
 Arrays Represent Order of DVMS being:
 LO // LP // EJS // JA // EDS
 '''
+from lib.DVM import DVM
+
 class Day:
 
     def __init__(self, dayNum, isOpen=True, closedReason=None):
@@ -40,24 +42,25 @@ class Day:
 
         self.vacationOff = [False, False, False, False, False] # T/F FOR VACATION OFF
 
-        if (dayNum == 0): # MONDAY OFFS
+        if (dayNum == 0): # MONDAY OFFS (LP, EJS)
             self.standardOff = [False, True, True, False, False]
-        elif (dayNum == 1): # TUESDAY OFFS
+        elif (dayNum == 1): # TUESDAY OFFS (JA)
             self.standardOff = [False, False, False, True, False]
-        if (dayNum == 2): # WEDNESDAY OFFS
+        if (dayNum == 2): # WEDNESDAY OFFS (LO, EDS)    
+            self.standardOff = [True, False, False, False, True]
+        elif (dayNum == 4): # FRIDAY OFFS  (LO)
             self.standardOff = [True, False, False, False, False]
-        elif (dayNum == 4): # FRIDAY OFFS
-            self.standardOff = [False, False, False, False, False]
         else: # NO AUTOMATIC OFFS FOR THURSDAY, SATURDAY
             self.standardOff = [False, False, False, False, False]
 
-    def setVet(self, dvmIdx, clockIn, clockOut, aptType, lunch=None):
+    def setVet(self, dvm: DVM, clockIn, clockOut, aptType, lunch=None):
+        dvmIdx = dvm.value
         self.clockIns[dvmIdx] = clockIn
         self.clockOuts[dvmIdx] = clockOut
         self.aptTypes[dvmIdx] = aptType
         self.lunches[dvmIdx] = lunch
 
-    def setVacation(self, dvmIdx):
-        self.vacationOff[dvmIdx] = True
+    def setVacation(self, dvm: DVM):
+        self.vacationOff[dvm.value] = True
     
     # TODO: IMPLEMENT GET HOURS FUNCTION
