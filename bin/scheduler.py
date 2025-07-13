@@ -10,12 +10,12 @@ class Scheduler:
     Using Calendar module, days are zero-based indexed, months are one-based indexed.
 
     @PARAMS
-    - month: INT of month
-    - year: INT of year
-    - closedDict: DICT where key = day closed, value = reason
+    - month: month 1-12
+    - year: year
+    - closedDict: key = day closed, value = reason
     - vacationArray: LIST where each idx corresponds to DVM containing a list of their days off
                     [[1, 28], [], [], [3 4 5], []]
-    - prevDays: LIST of DAY objects for days in previous month (ACTUAL DAY OBJECTS)
+    - prevDays: LIST of DAY objects for days in previous month
     - satSurgeon: which is the sat Surgeon of the month
     - satSurgeonDayOff: 1st-4th sat, 0 means none specified
 
@@ -59,26 +59,26 @@ class Scheduler:
         # Instantiates days actually in month in array
         for i in range(1, self.numDays + 1):
             dayOfWeek = calendar.weekday(year, month, i)
-            if (dayOfWeek == 6): pass
+            if (dayOfWeek == 6): continue
             
             if i in closedDict:
                 self.schedule.append(Day(dayOfWeek, False, closedDict[i]))
             else:
-                self.schedule.append(Day(i))
+                self.schedule.append(Day(dayOfWeek))
 
         # Instantiates post-month-days in array (for a full week)
         for i in range (1, self.monthEndOffset + 1):
             tempYear = year
-            tempMonth = month
+            tempMonth = month + 1
             if month == 12: 
-                tempYear = year +1
+                tempYear = year + 1
                 tempMonth = 1
 
             dayOfWeek = calendar.weekday(tempYear, tempMonth, i)
-            self.schedule.append(Day(i))
+            self.schedule.append(Day(dayOfWeek))
 
         # Implementing declared vacation days. i is DVM_IDX
-        for i in range(Scheduler.NUM_DVMs):
+        for i in range(DVM.NUM_DVMS):
             for j in vacationArray[i]:
                 self.schedule[j + self.monthStartOffset].setVacation(i)
         

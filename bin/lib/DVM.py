@@ -1,6 +1,6 @@
-from enum import Enum
+from enum import IntEnum
 
-class DVM(Enum):
+class DVM(IntEnum):
     """
     DVM NAME CORRESPONDING TO LIST INDEX.
     """
