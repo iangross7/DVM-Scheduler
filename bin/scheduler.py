@@ -1,6 +1,6 @@
 import calendar
 from day import Day
-from typing import List
+from typing import List, Dict
 from lib.DVM import DVM
 
 class Scheduler:
@@ -17,7 +17,7 @@ class Scheduler:
                     [[1, 28], [], [], [3 4 5], []]
     - prevDays: LIST of DAY objects for days in previous month (ACTUAL DAY OBJECTS)
     - satSurgeon: which is the sat Surgeon of the month
-    - satSurgeonDayOff: boolean which saturday the monthly sat surgeon requested off
+    - satSurgeonDayOff: 1st-4th sat, 0 means none specified
 
     @DATAFIELDS
     - ALL PARAMS PLUS:
@@ -28,11 +28,9 @@ class Scheduler:
     - monthEndOffset: how many days after month end (IDX ADD)
     - schedule: array representation of the schedule. contains pre-month and post-month days for full weeks
     """
-
-    NUM_DVMs = 5
-
-    def __init__(self, month, year, closedDict, vacationArray, satSurgeon: DVM,
-                 prevDays=None, satSurgeonDayOff=None):
+    def __init__(self, month:int, year:int, closedDict:Dict[int, str], 
+                 vacationArray:List[int], satSurgeon:DVM,
+                 prevDays:List[Day]=None, satSurgeonDayOff:int=0):
         
         self.month = month
         self.year = year

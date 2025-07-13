@@ -24,7 +24,7 @@ class Day:
     Arrays Follow DVM index set in DVM.py.
     """
 
-    def __init__(self, dayNum, isOpen=True, closedReason=None):
+    def __init__(self, dayNum:int, isOpen=True, closedReason:str=None):
         if dayNum < 0 or dayNum > 5:
             raise ValueError(f"Invalid Day of Week (got {dayNum})")
         
