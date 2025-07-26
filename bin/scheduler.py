@@ -29,8 +29,8 @@ class Scheduler:
     - schedule: array representation of the schedule. contains pre-month and post-month days for full weeks
     """
     def __init__(self, month:int, year:int, closedDict:Dict[int, str], 
-                 vacationArray:List[int], satSurgeon:DVM,
-                 prevDays:List[Day]=None, satSurgeonDayOff:int=0):
+                 vacationArray:List[List[int]], satSurgeon:DVM,
+                 prevDays:List[Day]=None, satSurgeonDayOff:int=0): # type: ignore
         numDVMs = len(DVM)
 
         self.month = month
@@ -79,9 +79,9 @@ class Scheduler:
             self.schedule.append(Day(dayOfWeek))
 
         # Implementing declared vacation days. i is DVM_IDX
-        for i in range(numDVMs):
-            for j in vacationArray[i]:
-                self.schedule[j + self.monthStartOffset].setVacation(i)
+        for dvm in DVM:
+            for j in vacationArray[i]: # type: ignore
+                self.schedule[j + self.monthStartOffset].setVacation(dvm)
         
         #TODO: Implement fixed Days, Sat Surgeon Days, Sat Surgeon Days Off 
     

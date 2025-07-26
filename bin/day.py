@@ -24,7 +24,7 @@ class Day:
     Arrays Follow DVM index set in DVM.py.
     """
 
-    def __init__(self, dayNum:int, isOpen=True, closedReason:str=None):
+    def __init__(self, dayNum:int, isOpen=True, closedReason:str=""):
         if dayNum < 0 or dayNum > 5:
             raise ValueError(f"Invalid Day of Week (got {dayNum})")
         
@@ -64,7 +64,7 @@ class Day:
             hours = self.getHoursWorked(dvm)
             if (hours == 0): retStr += dvm.name + ": OFF TODAY."
             else:
-                clockIn, clockOut = self.getClockHours(dvm)
+                clockIn, clockOut = self.getClockHours(dvm) # type: ignore
                 retStr += dvm.name + ": " + str(hours) + " hours //// " + str(clockIn) + "-" + str(clockOut)
                 lunchHours = self.getLunchHours(dvm)
                 if (lunchHours):
@@ -72,7 +72,7 @@ class Day:
             retStr += "\n"
         return retStr
 
-    def setVet(self, dvm: DVM, clockIn, clockOut, aptType, lunch=None):
+    def setVet(self, dvm: DVM, clockIn, clockOut, aptType, lunch=0):
         dvmIdx = dvm.value
         self.clockIns[dvmIdx] = clockIn
         self.clockOuts[dvmIdx] = clockOut
@@ -87,7 +87,7 @@ class Day:
     
     def getClockHours(self, dvm: DVM):
         if (self.isWorking(dvm)): return self.clockIns[dvm], self.clockOuts[dvm]
-        else: return None
+        else: return 
     
     def getLunchHours(self, dvm: DVM):
         lunchStart = self.lunches[dvm.value]
