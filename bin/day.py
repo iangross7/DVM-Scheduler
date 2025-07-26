@@ -28,7 +28,7 @@ class Day:
         if dayNum < 0 or dayNum > 5:
             raise ValueError(f"Invalid Day of Week (got {dayNum})")
         
-        numDvms = DVM.NUM_DVMS.value
+        numDvms = len(DVM)
 
         self.dayNum = dayNum
         self.isOpen = isOpen # CLINIC CLOSED / HOLIDAYS
@@ -57,6 +57,20 @@ class Day:
         elif (dayNum == 4): # FRIDAY OFFS  (LO)
             self.standardOff[DVM.LO.value] = True
         # NO AUTOMATIC OFFS FOR THURSDAY, SATURDAY
+    
+    def __str__(self):
+        retStr = ""
+        for dvm in DVM:
+            hours = self.getHoursWorked(dvm)
+            if (hours == 0): retStr += dvm.name + ": OFF TODAY."
+            else:
+                clockIn, clockOut = self.getClockHours(dvm)
+                retStr += dvm.name + ": " + str(hours) + " hours //// " + str(clockIn) + "-" + str(clockOut)
+                lunchHours = self.getLunchHours(dvm)
+                if (lunchHours):
+                    retStr += "; lunch from " + str(lunchHours[0]) + "-" + str(lunchHours[1])
+            retStr += "\n"
+        return retStr
 
     def setVet(self, dvm: DVM, clockIn, clockOut, aptType, lunch=None):
         dvmIdx = dvm.value
@@ -67,6 +81,22 @@ class Day:
 
     def setVacation(self, dvm: DVM):
         self.vacationOff[dvm.value] = True
+    
+    def isWorking(self, dvm: DVM):
+        return self.clockIns[dvm.value] > 0
+    
+    def getClockHours(self, dvm: DVM):
+        if (self.isWorking(dvm)): return self.clockIns[dvm], self.clockOuts[dvm]
+        else: return None
+    
+    def getLunchHours(self, dvm: DVM):
+        lunchStart = self.lunches[dvm.value]
+        if (lunchStart == 0): return None
+        else:
+            if (self.dayNum <= 1):
+                return lunchStart, lunchStart + 2
+            else:
+                return lunchStart, lunchStart + 1
 
     def getHoursWorked(self, dvm: DVM):
         """
@@ -75,6 +105,8 @@ class Day:
         (19 = 7PM means clocked out at 8PM)
         """
         dvmIdx = dvm.value
+        if (not self.isWorking(dvm)): return 0
+
         clockDiff = self.clockOuts[dvmIdx] - self.clockIns[dvmIdx] + 1
 
         if (self.lunches[dvmIdx] == 0):
@@ -84,6 +116,3 @@ class Day:
                 return (clockDiff - 2)
             else:
                 return (clockDiff - 1)
-
-    
-    # TODO: IMPLEMENT GET HOURS FUNCTION

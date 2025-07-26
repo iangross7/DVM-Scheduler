@@ -31,7 +31,8 @@ class Scheduler:
     def __init__(self, month:int, year:int, closedDict:Dict[int, str], 
                  vacationArray:List[int], satSurgeon:DVM,
                  prevDays:List[Day]=None, satSurgeonDayOff:int=0):
-        
+        numDVMs = len(DVM)
+
         self.month = month
         self.year = year
 
@@ -78,8 +79,16 @@ class Scheduler:
             self.schedule.append(Day(dayOfWeek))
 
         # Implementing declared vacation days. i is DVM_IDX
-        for i in range(DVM.NUM_DVMS):
+        for i in range(numDVMs):
             for j in vacationArray[i]:
                 self.schedule[j + self.monthStartOffset].setVacation(i)
         
         #TODO: Implement fixed Days, Sat Surgeon Days, Sat Surgeon Days Off 
+    
+    def __str__(self):
+        retStr = ""
+        for day in self.schedule:
+            retStr += str(day) + "\n"
+        return retStr
+    
+    #TODO: implement month / day calculations given schedule IDX

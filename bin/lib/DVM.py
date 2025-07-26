@@ -9,4 +9,3 @@ class DVM(IntEnum):
     EJS = 2
     JA = 3
     EDS = 4
-    NUM_DVMS = 5
