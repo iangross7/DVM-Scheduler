@@ -1,7 +1,6 @@
 from scheduler import Scheduler
-from day import Day
+from workday import WorkDay, DVM
 import calendar
-from lib.DVM import DVM
 
 
 testSched = Scheduler(6, 2025, {}, [[],[],[],[],[]], DVM.LP)

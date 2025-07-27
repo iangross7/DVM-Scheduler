@@ -1,94 +1,107 @@
 import calendar
-from day import Day
-from typing import List, Dict
-from lib.DVM import DVM
+from typing import List, Dict, Optional
+from workday import WorkDay, DVM, DAY_TYPE
 
 class Scheduler:
     """
-    Class used to schedule.
+    Builds a monthly schedule of WorkDay objects for DVMs.
 
-    Using Calendar module, days are zero-based indexed, months are one-based indexed.
+    Calendar uses 0=Monday..6=Sunday; we only track 0..5 (Mon..Sat).
 
-    @PARAMS
-    - month: month 1-12
-    - year: year
-    - closedDict: key = day closed, value = reason
-    - vacationArray: LIST where each idx corresponds to DVM containing a list of their days off
-                    [[1, 28], [], [], [3 4 5], []]
-    - prevDays: LIST of DAY objects for days in previous month
-    - satSurgeon: which is the sat Surgeon of the month
-    - satSurgeonDayOff: 1st-4th sat, 0 means none specified
-
-    @DATAFIELDS
-    - ALL PARAMS PLUS:
-    - numDays: number of days in current month
-    - firstDayOfMonth: which type of day for FOM (0-6)
-    - lastDayOfMonth: which type of day for EOM (0-6)
-    - monthStartOffset: how many days prior to month start (IDX ADD)
-    - monthEndOffset: how many days after month end (IDX ADD)
-    - schedule: array representation of the schedule. contains pre-month and post-month days for full weeks
+    IMPLICIT FIELDS:
+    - schedule: List[WorkDay]; list of workdays including padding to fill full Mon-Sat weeks
+    - numDays: int; total number of days in the month
+    - firstWeekday: int; weekday index of the month’s 1st (0=Mon..6=Sun)
+    - monthStartOffset: int; number of WorkDay slots before the 1st to align with weekday
+    - monthEndOffset: int; number of WorkDay slots after the last day to complete final week
     """
-    def __init__(self, month:int, year:int, closedDict:Dict[int, str], 
-                 vacationArray:List[List[int]], satSurgeon:DVM,
-                 prevDays:List[Day]=None, satSurgeonDayOff:int=0): # type: ignore
-        numDVMs = len(DVM)
-
+    def __init__(
+        self,
+        month: int,
+        year: int,
+        closedDict: Dict[int, str],  # day to reason of closure
+        vacationArray: List[List[int]],  # list corresponding to dvm idx of their vacation days
+        satSurgeon: DVM,  # sat surgeon of month
+        prevDays: Optional[List[WorkDay]] = None,  # days leading to current month
+        satSurgeonDayOff: int = 0,  # which saturday surgeon took off (1st-4th; 0 = none selected)
+    ):
+        # Validate month/year
+        if not (1 <= month <= 12):
+            raise ValueError(f"Invalid month: {month}")
         self.month = month
         self.year = year
 
-        _, self.numDays = calendar.monthrange(year, month)
+        # Determine the weekday of the 1st and total days
+        self.firstWeekday, self.numDays = calendar.monthrange(year, month)
 
-        self.firstDayOfMonth = calendar.weekday(year, month, 1) # OUTPUTTING ACTUAL DAY OBJECT NOT INT
-        self.monthStartOffset = self.firstDayOfMonth % 6 # when current month starts in array
+        # Leading padding: only Mon..Sat count; Sunday offset zero
+        self.monthStartOffset = self.firstWeekday if self.firstWeekday < 6 else 0
 
-        # TODO: VACATION DAY INPUT/CALCULATORS FOR THIS
-        self.lastDayOfMonth = calendar.weekday(year, month, self.firstDayOfMonth)
-        if (self.lastDayOfMonth == 6):
-            self.monthEndOffset = 0 # how many extra days in array to complete a week
-        else:
-            self.monthEndOffset = 5 - self.lastDayOfMonth
+        # Trailing padding: fill through Saturday of last week
+        lastWeekday = (self.firstWeekday + self.numDays - 1) % 7
+        self.monthEndOffset = 0 if lastWeekday == 6 else max(0, 5 - lastWeekday)
 
-        self.schedule: List[Day] = [] # list of Mon-Sat Days. % 6 = 0 is Mondays, % 6 = 5 is Saturday
+        # Build schedule with leading padding
+        self.schedule: List[WorkDay] = []
+        if self.monthStartOffset > 0:
+            if prevDays is None or len(prevDays) != self.monthStartOffset:
+                raise ValueError(
+                    f"Expected {self.monthStartOffset} prevDays, got {len(prevDays) if prevDays else 0}"
+                )
+            self.schedule.extend(prevDays)
 
-        # Instantiates prior-to-month-days in array (for a full week)
-        if (self.monthStartOffset != 0):
-            if (prevDays is None or len(prevDays) != self.monthStartOffset):
-                raise ValueError("Error: Invalid Amount of Prior Days for Month")
-            for day in prevDays:
-                self.schedule.append(day)
-        
-        # Instantiates days actually in month in array
-        for i in range(1, self.numDays + 1):
-            dayOfWeek = calendar.weekday(year, month, i)
-            if (dayOfWeek == 6): continue
-            
-            if i in closedDict:
-                self.schedule.append(Day(dayOfWeek, False, closedDict[i]))
+        # Populate current month WorkDay entries (skip Sundays)
+        for day in range(1, self.numDays + 1):
+            wkday = (self.firstWeekday + day - 1) % 7
+            if wkday == 6:
+                continue
+            if day in closedDict:
+                # <-- Added date, monthName, year when instantiating WorkDay
+                self.schedule.append(
+                    WorkDay(
+                        weekday=wkday,
+                        date=day,
+                        month=month,
+                        year=self.year,
+                        isOpen=False,
+                        closedReason=closedDict[day]
+                    )
+                )
             else:
-                self.schedule.append(Day(dayOfWeek))
+                self.schedule.append(
+                    WorkDay(
+                        weekday=wkday,
+                        date=day,
+                        month=month,
+                        year=self.year
+                    )
+                )
 
-        # Instantiates post-month-days in array (for a full week)
-        for i in range (1, self.monthEndOffset + 1):
-            tempYear = year
-            tempMonth = month + 1
-            if month == 12: 
-                tempYear = year + 1
-                tempMonth = 1
+        # Add trailing padding for next month days (skip Sundays)
+        nextMonth = month + 1 if month < 12 else 1
+        nextYear = year if month < 12 else year + 1
+        for pad in range(1, self.monthEndOffset + 1):
+            wkday = calendar.weekday(nextYear, nextMonth, pad)
+            if wkday < 6:
+                # Date for next month padding uses pad value
+                self.schedule.append(
+                    WorkDay(
+                        weekday=wkday,
+                        date=pad,
+                        month=nextMonth,
+                        year=nextYear
+                    )
+                )
 
-            dayOfWeek = calendar.weekday(tempYear, tempMonth, i)
-            self.schedule.append(Day(dayOfWeek))
-
-        # Implementing declared vacation days. i is DVM_IDX
+        # Apply vacation days (1-based input)
         for dvm in DVM:
-            for j in vacationArray[i]: # type: ignore
-                self.schedule[j + self.monthStartOffset].setVacation(dvm)
-        
-        #TODO: Implement fixed Days, Sat Surgeon Days, Sat Surgeon Days Off 
-    
-    def __str__(self):
-        retStr = ""
-        for day in self.schedule:
-            retStr += str(day) + "\n"
-        return retStr
-    
-    #TODO: implement month / day calculations given schedule IDX
+            daysOff = vacationArray[dvm.value] if dvm.value < len(vacationArray) else []
+            for offDay in daysOff:
+                idx = (offDay - 1) + self.monthStartOffset
+                if 0 <= idx < len(self.schedule):
+                    self.schedule[idx].setVacation(dvm)
+
+        # TODO: implement satSurgeon and satSurgeonDayOff logic
+
+    def __str__(self) -> str:
+        return "\n".join(str(day) for day in self.schedule)
