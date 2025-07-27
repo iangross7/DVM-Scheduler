@@ -101,8 +101,63 @@ class Scheduler:
                 idx = (dayNum - 1) + self.monthStartOffset
                 if 0 <= idx < len(self.schedule):
                     self.schedule[idx].setVacation(dvm, startHour, endHour)
-                    
-    #TODO: METHOD FOR THE SCHEDULING!!!
 
     def __str__(self) -> str:
         return "\n".join(str(day) for day in self.schedule)
+    
+    def generateSchedule(self) -> None:
+        """
+        Core scheduling algorithm to assign
+        - Appointments vs. surgeries
+        - Lunches
+        - Honor all special rules and hour targets
+        """
+        # 1) Initialize tracking of weekly and monthly hours per DVM
+        self.weeklyHours: Dict[int, int] = {d.value: 0 for d in DVM}
+        self.monthlyHours: Dict[int, int] = {d.value: 0 for d in DVM}
+
+        # 2) Iterate each WorkDay and schedule
+        currentWeekIndex = 0
+        daysInWeek = []
+        for idx, day in enumerate(self.schedule):
+            # Reset weekly tracking when a full week (6 Mon-Sat) completes
+            daysInWeek.append(day)
+            if len(daysInWeek) == 6:
+                self._processWeek(daysInWeek)
+                daysInWeek = []
+
+        # Process any remaining days
+        if daysInWeek:
+            self._processWeek(daysInWeek)
+
+    def _processWeek(self, days: List[WorkDay]) -> None:
+        """
+        Schedule a contiguous block of Mon-Sat (a 'week').
+        """
+        # 1) Enforce max 40h/week per DVM
+        # 2) Loop through each day and call _scheduleDay
+        for day in days:
+            if not day.isOpen:
+                continue
+            self._scheduleDay(day)
+
+    def _scheduleDay(self, day: WorkDay) -> None:
+        """
+        Assign shifts to a single WorkDay.
+        """
+        # TODO: implement sequence for:
+        # - Place routine surgeons
+        # - Assign appointments ensuring 2-3 vets
+        # - Apply special-case surgeons (LO, JA, LP)
+        # - Respect vacations and standardOff
+        # - Call _staggerLunches(day)
+        # - Update self.weeklyHours and self.monthlyHours
+        pass
+
+    def _staggerLunches(self, day: WorkDay) -> None:
+        """
+        Stagger lunchStart times to avoid concurrent lunches.
+        LP prioritized earliest lunch.
+        """
+        # TODO: analyze day.shifts and assign lunchStart
+        pass
