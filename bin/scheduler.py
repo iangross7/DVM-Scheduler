@@ -46,7 +46,7 @@ class Scheduler:
         if self.monthStartOffset > 0:
             if prevDays is None or len(prevDays) != self.monthStartOffset:
                 raise ValueError(
-                    f"Expected {self.monthStartOffset} prevDays, got {len(prevDays) if prevDays else 0}"
+                    f"Incorrect amount of prior month days passed. Expected {self.monthStartOffset}, got {len(prevDays) if prevDays else 0}"
                 )
             self.schedule.extend(prevDays)
 

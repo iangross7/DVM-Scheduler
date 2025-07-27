@@ -65,7 +65,7 @@ class WorkDay:
 
     def __post_init__(self):
         if not (0 <= self.weekday <= 5):
-            raise ValueError(f"Invalid dayNum: {self.weekday}")
+            raise ValueError(f"Invalid weekday (0-5): {self.weekday}")
 
         self.shifts = [Shift(dayNum=self.weekday) for _ in DVM]
 
