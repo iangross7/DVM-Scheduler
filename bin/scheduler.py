@@ -1,5 +1,5 @@
 import calendar
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from workday import WorkDay, DVM, DAY_TYPE
 
 class Scheduler:
@@ -20,7 +20,8 @@ class Scheduler:
         month: int,
         year: int,
         closedDict: Dict[int, str],  # day to reason of closure
-        vacationArray: List[List[int]],  # list corresponding to dvm idx of their vacation days
+        vacationArray: List[List[Tuple[int, int, int]]], # list of DVM's vacation requests, indexed by DVM
+                                                         # tuple: day, clockIn, clockOut
         satSurgeon: DVM,  # sat surgeon of month
         prevDays: Optional[List[WorkDay]] = None,  # days leading to current month
         satSurgeonDayOff: int = 0,  # which saturday surgeon took off (1st-4th; 0 = none selected)
@@ -95,13 +96,13 @@ class Scheduler:
 
         # Apply vacation days (1-based input)
         for dvm in DVM:
-            daysOff = vacationArray[dvm.value] if dvm.value < len(vacationArray) else []
-            for offDay in daysOff:
-                idx = (offDay - 1) + self.monthStartOffset
+            vacRequests = vacationArray[dvm.value] if dvm.value < len(vacationArray) else []
+            for dayNum, startHour, endHour in vacRequests:
+                idx = (dayNum - 1) + self.monthStartOffset
                 if 0 <= idx < len(self.schedule):
-                    self.schedule[idx].setVacation(dvm)
-
-        # TODO: implement satSurgeon and satSurgeonDayOff logic
+                    self.schedule[idx].setVacation(dvm, startHour, endHour)
+                    
+    #TODO: METHOD FOR THE SCHEDULING!!!
 
     def __str__(self) -> str:
         return "\n".join(str(day) for day in self.schedule)

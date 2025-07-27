@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import IntEnum, Enum
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import calendar
 
 # DVM's name corresponding to their index
@@ -15,6 +15,7 @@ class DVM(IntEnum):
 class DAY_TYPE(Enum):
     APPOINTMENT = "APPOINTMENT"
     SURGERY = "SURGERY"
+    BOTH = "BOTH"
 
 # Lunch durations by dayNum (0=Mon..5=Sat) (CLOSED SUN)
 LUNCH_LENGTH = {0: 2, 1: 2, 2: 1, 3: 1, 4: 1, 5: 1}
@@ -37,7 +38,7 @@ class Shift:
     clockOut: Optional[int] = None  # MILITARY time worked through (exit hour + 1)
     lunchStart: Optional[int] = None  # start of lunch time
     dayType: Optional[DAY_TYPE] = None  # type of day event (appointment or surgery)
-    vacation: bool = False  # whether or not a vacation day
+    vacation: Optional[Tuple[int, int]] = None  # (start hour, end hour) of vacation
     standardOff: bool = False  # whether or not a std day off
 
     @property
@@ -77,13 +78,17 @@ class WorkDay:
         """
         Schedule a DVM's shift. dayType must be DAY_TYPE or None.
         """
-        if not (0 <= clockIn < 24 and 0 < clockOut <= 24 and clockIn < clockOut):
+        if not (8 <= clockIn < 19 and 8 < clockOut <= 19 and clockIn < clockOut):
             raise ValueError(f"Invalid clock times: {clockIn}-{clockOut}")
 
         shift = self.shifts[dvm.value]
 
-        if shift.standardOff or shift.vacation:
-            raise ValueError("Tried to schedule on a day off.")
+        if shift.standardOff:
+            raise ValueError("Tried to schedule on a standard day off.")
+        if shift.vacation:
+            vacStart, vacEnd = shift.vacation
+            if clockIn < vacEnd and clockOut > vacStart:
+                raise ValueError(f"Shift overlaps vacation hours {vacStart}-{vacEnd}")
 
         if dayType is not None and not isinstance(dayType, DAY_TYPE):
             raise ValueError(f"dayType must be DAY_TYPE or None, got {dayType}")
@@ -93,17 +98,31 @@ class WorkDay:
         shift.dayType = dayType
         shift.lunchStart = lunchStart
 
-    def setVacation(self, dvm: DVM):
+    def setVacation(self, dvm: DVM, startHour: int, endHour: int):
         """
-        Mark a DVM as on vacation for this day.
+        Mark a DVM as on vacation for this day (partial or full day).
         """
-        self.shifts[dvm.value].vacation = True
+        if not (0 <= startHour < endHour <= 24):
+            raise ValueError(f"Invalid vacation hours: {startHour}-{endHour}")
         
-    def ableToSchedule(self, dvm: DVM) -> bool:
+        self.shifts[dvm.value].vacation = (startHour, endHour)
+        
+    def ableToSchedule(self, dvm: DVM, clockIn: int, clockOut: int) -> bool:
         """
         Return True if a DVM could be added to schedule.
         """
-        return (self.shifts[dvm.value].standardOff or self.shifts[dvm.value].vacation)
+        if not (8 <= clockIn < 19 and 8 < clockOut <= 19 and clockIn < clockOut):
+            raise ValueError(f"Invalid clock times: {clockIn}-{clockOut}")
+        
+        shift = self.shifts[dvm.value]
+        if shift.standardOff:
+            return False
+        if shift.vacation:
+            vac_start, vac_end = shift.vacation
+            # if desired shift overlaps any part of vacation, cannot schedule
+            if clockIn < vac_end and clockOut > vac_start:
+                return False
+        return True
 
     def isWorking(self, dvm: DVM) -> bool:
         """
@@ -121,12 +140,14 @@ class WorkDay:
         lines = [header]
         for d in DVM:
             shift = self.shifts[d.value]
-            if shift.vacation:
-                lines.append(f"{d.name}: Vacation")
-            elif shift.standardOff:
+            if shift.standardOff:
                 lines.append(f"{d.name}: Standard Off")
             elif not self.isWorking(d):
-                lines.append(f"{d.name}: Not Scheduled")
+                if shift.vacation:
+                    vacStart, vacEnd = shift.vacation
+                    lines.append(f"{d.name}: Vacation {vacStart}-{vacEnd}")
+                else:
+                    lines.append(f"{d.name}: Not Scheduled")
             else:
                 s = (f"{d.name}: {shift.workedHours}h "
                         f"({shift.clockIn}-{shift.clockOut})")
