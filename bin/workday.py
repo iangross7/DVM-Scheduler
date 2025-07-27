@@ -98,6 +98,12 @@ class WorkDay:
         Mark a DVM as on vacation for this day.
         """
         self.shifts[dvm.value].vacation = True
+        
+    def ableToSchedule(self, dvm: DVM) -> bool:
+        """
+        Return True if a DVM could be added to schedule.
+        """
+        return (self.shifts[dvm.value].standardOff or self.shifts[dvm.value].vacation)
 
     def isWorking(self, dvm: DVM) -> bool:
         """

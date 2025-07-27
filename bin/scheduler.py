@@ -11,7 +11,7 @@ class Scheduler:
     IMPLICIT FIELDS:
     - schedule: List[WorkDay]; list of workdays including padding to fill full Mon-Sat weeks
     - numDays: int; total number of days in the month
-    - firstWeekday: int; weekday index of the month’s 1st (0=Mon..6=Sun)
+    - firstWeekday: int; weekday index of the month's 1st (0=Mon..6=Sun)
     - monthStartOffset: int; number of WorkDay slots before the 1st to align with weekday
     - monthEndOffset: int; number of WorkDay slots after the last day to complete final week
     """
