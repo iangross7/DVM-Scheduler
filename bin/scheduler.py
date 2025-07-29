@@ -102,62 +102,166 @@ class Scheduler:
                 if 0 <= idx < len(self.schedule):
                     self.schedule[idx].setVacation(dvm, startHour, endHour)
 
-    def __str__(self) -> str:
-        return "\n".join(str(day) for day in self.schedule)
-    
+        # Saturday settings
+        self.satSurgeon = satSurgeon
+        self.satSurgeonDayOff = satSurgeonDayOff
+        self.scheduleSaturdays: List[int] = []
+
     def generateSchedule(self) -> None:
-        """
-        Core scheduling algorithm to assign
-        - Appointments vs. surgeries
-        - Lunches
-        - Honor all special rules and hour targets
-        """
-        # 1) Initialize tracking of weekly and monthly hours per DVM
-        self.weeklyHours: Dict[int, int] = {d.value: 0 for d in DVM}
-        self.monthlyHours: Dict[int, int] = {d.value: 0 for d in DVM}
+        """Run greedy scheduling then hill-climber optimization."""
+        # Track hours
+        self.weeklyHours = {d.value: 0 for d in DVM}
+        self.monthlyHours = {d.value: 0 for d in DVM}
 
-        # 2) Iterate each WorkDay and schedule
-        currentWeekIndex = 0
-        daysInWeek = []
-        for idx, day in enumerate(self.schedule):
-            # Reset weekly tracking when a full week (6 Mon-Sat) completes
-            daysInWeek.append(day)
-            if len(daysInWeek) == 6:
-                self._processWeek(daysInWeek)
-                daysInWeek = []
+        # Process weeks
+        week: List[WorkDay] = []
+        for day in self.schedule:
+            if day.isOpen:
+                week.append(day)
+            if len(week) == 6:
+                self._processWeek(week)
+                week = []
+        if week:
+            self._processWeek(week)
 
-        # Process any remaining days
-        if daysInWeek:
-            self._processWeek(daysInWeek)
+        # TODO: hill-climber swaps
 
     def _processWeek(self, days: List[WorkDay]) -> None:
-        """
-        Schedule a contiguous block of Mon-Sat (a 'week').
-        """
-        # 1) Enforce max 40h/week per DVM
-        # 2) Loop through each day and call _scheduleDay
         for day in days:
-            if not day.isOpen:
-                continue
             self._scheduleDay(day)
 
     def _scheduleDay(self, day: WorkDay) -> None:
-        """
-        Assign shifts to a single WorkDay.
-        """
-        # TODO: implement sequence for:
-        # - Place routine surgeons
-        # - Assign appointments ensuring 2-3 vets
-        # - Apply special-case surgeons (LO, JA, LP)
-        # - Respect vacations and standardOff
-        # - Call _staggerLunches(day)
-        # - Update self.weeklyHours and self.monthlyHours
-        pass
+        openHour = 8
+        lastWork = 19 if day.weekday < 2 else 17
+
+        # Helper to enforce weekly (40h) and monthly (170h) caps
+        def canTake(dvm: DVM, start: int, end: int) -> bool:
+            hours = end - start + 1
+            # subtract lunch if assigned
+            shift = day.shifts[dvm.value]
+            if shift.lunchStart is not None and shift.dayType != DAY_TYPE.SURGERY:
+                hours -= (2 if day.weekday < 2 else 1)
+            if self.weeklyHours[dvm.value] + hours > 40:
+                return False
+            if self.monthlyHours[dvm.value] + hours > 170:
+                return False
+            return True
+
+        # 1) LO/JA combined surgery+appointment (BOTH)
+        if day.weekday == 0 and canTake(DVM.JA, openHour, lastWork) and day.ableToSchedule(DVM.JA, openHour, lastWork):
+            day.setVet(DVM.JA, openHour, lastWork, DAY_TYPE.BOTH)
+            hrs = day.shifts[DVM.JA.value].workedHours
+            self.weeklyHours[DVM.JA.value] += hrs
+            self.monthlyHours[DVM.JA.value] += hrs
+        if day.weekday == 1 and canTake(DVM.LO, openHour, lastWork) and day.ableToSchedule(DVM.LO, openHour, lastWork):
+            day.setVet(DVM.LO, openHour, lastWork, DAY_TYPE.BOTH)
+            hrs = day.shifts[DVM.LO.value].workedHours
+            self.weeklyHours[DVM.LO.value] += hrs
+            self.monthlyHours[DVM.LO.value] += hrs
+
+        # 2) LP Friday 8h surgery no lunch
+        if day.weekday == 4 and canTake(DVM.LP, openHour, openHour+7) and day.ableToSchedule(DVM.LP, openHour, openHour+7):
+            day.setVet(DVM.LP, openHour, openHour+7, DAY_TYPE.SURGERY)
+            day.shifts[DVM.LP.value].lunchStart = None
+            hrs = day.shifts[DVM.LP.value].workedHours
+            self.weeklyHours[DVM.LP.value] += hrs
+            self.monthlyHours[DVM.LP.value] += hrs
+
+        # 3) Routine surgeon except Wed, exclude EDS, with fallback
+        if day.weekday != 2:
+            primary = {0: DVM.JA, 1: DVM.LO, 3: DVM.EJS, 4: DVM.LP}.get(day.weekday)
+            surgeon = None
+            if primary and primary != DVM.EDS and canTake(primary, openHour, openHour+5) and day.ableToSchedule(primary, openHour, openHour+5):
+                surgeon = primary
+            else:
+                for cand in [DVM.LP, DVM.LO, DVM.EJS, DVM.JA]:
+                    if cand != DVM.EDS and canTake(cand, openHour, openHour+5) and day.ableToSchedule(cand, openHour, openHour+5):
+                        surgeon = cand
+                        break
+            if surgeon:
+                day.setVet(surgeon, openHour, openHour+5, DAY_TYPE.SURGERY)
+                hrs = day.shifts[surgeon.value].workedHours
+                self.weeklyHours[surgeon.value] += hrs
+                self.monthlyHours[surgeon.value] += hrs
+
+        # 4) Appointments min 2, max 3 (full-day then half-day)
+        needed = 2
+        extra = 1
+        for slot in [(openHour, lastWork), (openHour, openHour+6)]:
+            for d in sorted(DVM, key=lambda d: self.monthlyHours[d.value]):
+                if needed == 0:
+                    break
+                if day.isWorking(d):
+                    continue
+                start, end = slot
+                if canTake(d, start, end) and day.ableToSchedule(d, start, end):
+                    day.setVet(d, start, end, DAY_TYPE.APPOINTMENT)
+                    hrs = day.shifts[d.value].workedHours
+                    self.weeklyHours[d.value] += hrs
+                    self.monthlyHours[d.value] += hrs
+                    needed -= 1
+            if needed == 0:
+                break
+        # optional third appointment
+        for slot in [(openHour, lastWork), (openHour, openHour+6)]:
+            for d in sorted(DVM, key=lambda d: self.monthlyHours[d.value]):
+                if extra == 0:
+                    break
+                if day.isWorking(d):
+                    continue
+                start, end = slot
+                if canTake(d, start, end) and day.ableToSchedule(d, start, end):
+                    day.setVet(d, start, end, DAY_TYPE.APPOINTMENT)
+                    hrs = day.shifts[d.value].workedHours
+                    self.weeklyHours[d.value] += hrs
+                    self.monthlyHours[d.value] += hrs
+                    extra -= 1
+            if extra == 0:
+                break
+
+        # 5) Stagger lunches
+        self._staggerLunches(day)
+
+        # 6) Saturday logic: schedule satSurgeon on 3 of 4 Saturdays
+        if day.weekday == 5:
+            # Determine this Saturday's ordinal (1-4)
+            saturdaysSoFar = [d for d in self.schedule if d.weekday == 5 and d.date < day.date]
+            ordinal = len(saturdaysSoFar) + 1
+            # If this is not the designated day off
+            if ordinal != self.satSurgeonDayOff:
+                # Schedule the monthly surgeon slot
+                if canTake(self.satSurgeon, openHour, openHour+5) and day.ableToSchedule(self.satSurgeon, openHour, openHour+5):
+                    day.setVet(self.satSurgeon, openHour, openHour+5, DAY_TYPE.SURGERY)
+                    hrs = day.shifts[self.satSurgeon.value].workedHours
+                    self.weeklyHours[self.satSurgeon.value] += hrs
+                    self.monthlyHours[self.satSurgeon.value] += hrs
+                    self.scheduleSaturdays.append(day.date)
+            # Fill two appointment slots for Sat
+            needed = 2
+            for d in sorted(DVM, key=lambda d: self.monthlyHours[d.value]):
+                if needed == 0:
+                    break
+                if day.isWorking(d) or d == self.satSurgeon:
+                    continue
+                if canTake(d, openHour, lastWork) and day.ableToSchedule(d, openHour, lastWork):
+                    day.setVet(d, openHour, lastWork, DAY_TYPE.APPOINTMENT)
+                    hrs = day.shifts[d.value].workedHours
+                    self.weeklyHours[d.value] += hrs
+                    self.monthlyHours[d.value] += hrs
+                    needed -= 1
 
     def _staggerLunches(self, day: WorkDay) -> None:
-        """
-        Stagger lunchStart times to avoid concurrent lunches.
-        LP prioritized earliest lunch.
-        """
-        # TODO: analyze day.shifts and assign lunchStart
-        pass
+        windowStart = 12
+        windowEnd = 14 if day.weekday < 2 else 13
+        vets = [d for d in DVM if day.shifts[d.value].clockOut and day.shifts[d.value].clockOut > 14 and day.shifts[d.value].dayType != DAY_TYPE.SURGERY] # type: ignore
+        order = sorted(vets, key=lambda d: (d != DVM.LP, self.monthlyHours[d.value]))
+        for i, dvm in enumerate(order):
+            start = windowStart + i
+            if start >= windowEnd:
+                start = windowStart
+            day.shifts[dvm.value].lunchStart = start
+
+    def __str__(self) -> str:
+        return "\n".join(str(d) for d in self.schedule)
+
+
