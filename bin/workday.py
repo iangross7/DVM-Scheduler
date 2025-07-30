@@ -42,13 +42,26 @@ class Shift:
     standardOff: bool = False  # whether or not a std day off
 
     @property
-    def workedHours(self) -> int:
+    def workedHoursAfterLunchSet(self) -> int:
         if self.clockIn is None or self.clockOut is None:
             return 0
         total = self.clockOut - self.clockIn + 1
         if self.lunchStart is not None:
             length = LUNCH_LENGTH.get(self.dayNum, 1)
             total -= length
+        return total
+    
+    @property
+    def workedHours(self) -> int:
+        if self.clockIn is None or self.clockOut is None:
+            return 0
+        total = self.clockOut - self.clockIn + 1
+        
+        # Handles lunch hours even if not declared yet
+        if self.clockOut > 13:
+            lunchHours = 1 if self.dayNum > 1 else 2
+            total -= lunchHours
+            
         return total
 
 @dataclass
@@ -92,6 +105,12 @@ class WorkDay:
 
         if dayType is not None and not isinstance(dayType, DAY_TYPE):
             raise ValueError(f"dayType must be DAY_TYPE or None, got {dayType}")
+        
+        if dvm is DVM.EDS and dayType is DAY_TYPE.SURGERY:
+            raise ValueError("Tried to assign EDS to surgery")
+        
+        if ((dvm is not DVM.JA) and (dvm is not DVM.LO)) and dayType is DAY_TYPE.BOTH:
+            raise ValueError(f"Tried to schedule SURGERY into APPT day for {dvm}")
 
         shift.clockIn = clockIn
         shift.clockOut = clockOut
@@ -129,6 +148,28 @@ class WorkDay:
         Return True if DVM is scheduled to work.
         """
         return self.shifts[dvm.value].clockIn is not None
+    
+    def getLunchLength(self, clockOut: int) -> int:
+        """
+        Returns 0 if no lunch needed, 1 for W-S, 2 for M&T
+        """
+        if clockOut < 13: return 0
+        else:
+            lunchTime = 1 if self.weekday > 1 else 2
+            return lunchTime
+    
+    def getNumApptsOnShift(self) -> int:
+        """
+        Retrieves number of appointments on a given shift.
+        """
+        return len([d for d in self.shifts if d.dayType is DAY_TYPE.APPOINTMENT])
+    
+    def getNumSurgeonsOnShift(self) -> int:
+        """
+        Retrieves number of surgeons on a given shift. Accounts for special BOTH days.
+        """
+        return len([d for d in self.shifts if d.dayType is DAY_TYPE.APPOINTMENT or d.dayType is DAY_TYPE.BOTH])
+        
 
     def __str__(self) -> str:
         """
